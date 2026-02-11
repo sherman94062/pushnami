@@ -1,0 +1,186 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --color-primary: #2563eb;
+  --color-primary-dark: #1d4ed8;
+  --color-bg: #ffffff;
+  --color-bg-alt: #f8fafc;
+  --color-text: #0f172a;
+  --color-text-muted: #64748b;
+  --color-border: #e2e8f0;
+  --max-width: 1100px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, sans-serif;
+  color: var(--color-text);
+  background: var(--color-bg);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Promo Banner */
+.promo-banner {
+  padding: 12px 20px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 14px;
+  color: #fff;
+}
+
+/* Hero */
+.hero {
+  padding: 80px 24px;
+  text-align: center;
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.hero--centered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.hero h1 {
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1.15;
+  margin-bottom: 20px;
+  letter-spacing: -0.02em;
+}
+
+.hero p {
+  font-size: 20px;
+  color: var(--color-text-muted);
+  max-width: 600px;
+  margin: 0 auto 36px;
+}
+
+/* CTA Button */
+.cta-button {
+  display: inline-block;
+  padding: 14px 36px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--color-primary);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  text-decoration: none;
+}
+
+.cta-button:hover {
+  background: var(--color-primary-dark);
+}
+
+.cta-button:active {
+  transform: scale(0.98);
+}
+
+/* Features Section */
+.features {
+  padding: 80px 24px;
+  background: var(--color-bg-alt);
+}
+
+.features-inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.features h2 {
+  text-align: center;
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 48px;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 32px;
+}
+
+.feature-card {
+  background: var(--color-bg);
+  border-radius: 12px;
+  padding: 32px;
+  border: 1px solid var(--color-border);
+}
+
+.feature-card h3 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.feature-card p {
+  color: var(--color-text-muted);
+  font-size: 15px;
+}
+
+/* Testimonials */
+.testimonials {
+  padding: 80px 24px;
+}
+
+.testimonials-inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.testimonials h2 {
+  text-align: center;
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 48px;
+}
+
+.testimonials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+}
+
+.testimonial-card {
+  background: var(--color-bg-alt);
+  border-radius: 12px;
+  padding: 28px;
+  border: 1px solid var(--color-border);
+}
+
+.testimonial-card blockquote {
+  font-size: 15px;
+  color: var(--color-text);
+  font-style: italic;
+  margin-bottom: 16px;
+  line-height: 1.7;
+}
+
+.testimonial-card cite {
+  font-size: 14px;
+  font-weight: 600;
+  font-style: normal;
+  color: var(--color-text-muted);
+}
+
+/* Footer */
+.footer {
+  padding: 40px 24px;
+  text-align: center;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
