@@ -1,19 +1,29 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '../../../lib/api';
 import StatsChart from '../../../components/StatsChart';
 import ConversionTable from '../../../components/ConversionTable';
 
 export default function ExperimentDetailPage({ params }) {
-  const { id } = use(params);
+  const [id, setId] = useState(null);
+
+  useEffect(() => {
+    // Handle params as a promise (Next.js 15+) or plain object
+    if (params && typeof params.then === 'function') {
+      params.then((p) => setId(p.id));
+    } else {
+      setId(params.id);
+    }
+  }, [params]);
   const [experiment, setExperiment] = useState(null);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!id) return;
     async function load() {
       try {
         const [exp, statsData] = await Promise.all([
