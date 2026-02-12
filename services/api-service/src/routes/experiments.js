@@ -1,30 +1,57 @@
 const { Router } = require('express');
+const { body, query } = require('express-validator');
 const { pool } = require('../db');
+const logger = require('../utils/logger');
 const { assignVariant } = require('../utils/assignVariant');
+const { validate } = require('../middleware/validation');
+const { writeLimiter } = require('../middleware/rateLimiter');
 
 const router = Router();
 
+// Validation rules
+const assignValidation = [
+  query('visitor_id').isString().trim().notEmpty().isLength({ max: 255 }),
+  query('experiment_name').isString().trim().notEmpty().isLength({ max: 255 }),
+];
+
+const createExperimentValidation = [
+  body('name').isString().trim().notEmpty().isLength({ min: 1, max: 255 }),
+  body('description').optional().isString().isLength({ max: 1000 }),
+  body('is_active').optional().isBoolean(),
+];
+
+const updateExperimentValidation = [
+  body('name').optional().isString().trim().notEmpty().isLength({ min: 1, max: 255 }),
+  body('description').optional().isString().isLength({ max: 1000 }),
+  body('is_active').optional().isBoolean(),
+];
+
+const createVariantValidation = [
+  body('name').isString().trim().notEmpty().isLength({ min: 1, max: 255 }),
+  body('weight').optional().isFloat({ min: 0, max: 1 }),
+  body('config').optional().isObject(),
+];
+
 // Assign visitor to variant — must be before /:id to avoid matching "assign" as an ID
-router.get('/assign', async (req, res, next) => {
+router.get('/assign', assignValidation, validate, async (req, res, next) => {
   try {
     const { visitor_id, experiment_name } = req.query;
-    if (!visitor_id || !experiment_name) {
-      return res
-        .status(400)
-        .json({ error: 'visitor_id and experiment_name are required' });
-    }
 
     // Look up experiment by name
     const { rows: expRows } = await pool.query(
       'SELECT * FROM experiments WHERE name = $1',
       [experiment_name]
     );
+
     if (expRows.length === 0) {
+      logger.warn('Experiment not found', { experiment_name, visitor_id });
       return res.status(404).json({ error: 'Experiment not found' });
     }
+
     const experiment = expRows[0];
 
     if (!experiment.is_active) {
+      logger.debug('Experiment inactive', { experiment_name, visitor_id });
       return res.json({
         experiment_id: experiment.id,
         experiment_name: experiment.name,
@@ -45,6 +72,11 @@ router.get('/assign', async (req, res, next) => {
 
     if (existingRows.length > 0) {
       const existing = existingRows[0];
+      logger.debug('Returning existing assignment', {
+        experiment_name,
+        visitor_id,
+        variant_name: existing.variant_name,
+      });
       return res.json({
         experiment_id: experiment.id,
         experiment_name: experiment.name,
@@ -64,6 +96,7 @@ router.get('/assign', async (req, res, next) => {
     );
 
     if (variants.length === 0) {
+      logger.error('No variants configured', { experiment_name, experiment_id: experiment.id });
       return res.status(404).json({ error: 'No variants configured for this experiment' });
     }
 
@@ -87,6 +120,12 @@ router.get('/assign', async (req, res, next) => {
     );
 
     const final = finalRows[0];
+    logger.info('New variant assignment', {
+      experiment_name,
+      visitor_id,
+      variant_name: final.variant_name,
+    });
+
     res.json({
       experiment_id: experiment.id,
       experiment_name: experiment.name,
@@ -123,6 +162,7 @@ router.get('/', async (req, res, next) => {
       variants: variantsByExp[exp.id] || [],
     }));
 
+    logger.debug('Experiments listed', { count: experiments.length });
     res.json(result);
   } catch (err) {
     next(err);
@@ -135,13 +175,18 @@ router.get('/:id', async (req, res, next) => {
     const { rows } = await pool.query('SELECT * FROM experiments WHERE id = $1', [
       req.params.id,
     ]);
+
     if (rows.length === 0) {
+      logger.warn('Experiment not found', { id: req.params.id });
       return res.status(404).json({ error: 'Experiment not found' });
     }
+
     const { rows: variants } = await pool.query(
       'SELECT * FROM variants WHERE experiment_id = $1 ORDER BY name',
       [req.params.id]
     );
+
+    logger.debug('Experiment retrieved', { id: req.params.id, name: rows[0].name });
     res.json({ ...rows[0], variants });
   } catch (err) {
     next(err);
@@ -149,16 +194,16 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // Create experiment
-router.post('/', async (req, res, next) => {
+router.post('/', writeLimiter, createExperimentValidation, validate, async (req, res, next) => {
   try {
     const { name, description, is_active } = req.body;
-    if (!name || typeof name !== 'string') {
-      return res.status(400).json({ error: 'name is required' });
-    }
+
     const { rows } = await pool.query(
       'INSERT INTO experiments (name, description, is_active) VALUES ($1, $2, $3) RETURNING *',
       [name.trim(), description || null, is_active !== false]
     );
+
+    logger.info('Experiment created', { id: rows[0].id, name: rows[0].name });
     res.status(201).json(rows[0]);
   } catch (err) {
     next(err);
@@ -166,9 +211,10 @@ router.post('/', async (req, res, next) => {
 });
 
 // Update experiment
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', writeLimiter, updateExperimentValidation, validate, async (req, res, next) => {
   try {
     const { name, description, is_active } = req.body;
+
     const { rows } = await pool.query(
       `UPDATE experiments SET
         name = COALESCE($1, name),
@@ -176,11 +222,15 @@ router.put('/:id', async (req, res, next) => {
         is_active = COALESCE($3, is_active),
         updated_at = NOW()
       WHERE id = $4 RETURNING *`,
-      [name, description, is_active, req.params.id]
+      [name?.trim(), description, is_active, req.params.id]
     );
+
     if (rows.length === 0) {
+      logger.warn('Experiment not found for update', { id: req.params.id });
       return res.status(404).json({ error: 'Experiment not found' });
     }
+
+    logger.info('Experiment updated', { id: rows[0].id, name: rows[0].name });
     res.json(rows[0]);
   } catch (err) {
     next(err);
@@ -188,16 +238,20 @@ router.put('/:id', async (req, res, next) => {
 });
 
 // Add variant to experiment
-router.post('/:id/variants', async (req, res, next) => {
+router.post('/:id/variants', writeLimiter, createVariantValidation, validate, async (req, res, next) => {
   try {
     const { name, weight, config } = req.body;
-    if (!name || typeof name !== 'string') {
-      return res.status(400).json({ error: 'name is required' });
-    }
+
     const { rows } = await pool.query(
       'INSERT INTO variants (experiment_id, name, weight, config) VALUES ($1, $2, $3, $4) RETURNING *',
       [req.params.id, name.trim(), weight || 0.5, config || {}]
     );
+
+    logger.info('Variant created', {
+      experiment_id: req.params.id,
+      variant_id: rows[0].id,
+      name: rows[0].name,
+    });
     res.status(201).json(rows[0]);
   } catch (err) {
     next(err);

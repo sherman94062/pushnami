@@ -8,11 +8,16 @@ export default async function DashboardPage() {
   let recentEvents = [];
 
   try {
-    [toggles, experiments, recentEvents] = await Promise.all([
+    const [togglesData, experimentsData, eventsData] = await Promise.all([
       apiFetch('/api/toggles'),
       apiFetch('/api/experiments'),
       apiFetch('/api/events?limit=5'),
     ]);
+    
+    toggles = togglesData;
+    experiments = experimentsData;
+    // Handle new paginated response format
+    recentEvents = eventsData.events || eventsData;
   } catch (err) {
     console.error('Dashboard fetch error:', err);
   }
